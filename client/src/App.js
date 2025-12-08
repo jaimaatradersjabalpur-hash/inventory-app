@@ -11,7 +11,7 @@ function App() {
   // 1. Load items from the Manager (Backend)
   useEffect(() => {
     // IMPORTANT: We use localhost for now. Later we change this to the cloud link.
-    axios.get('http://localhost:5000/items')
+    axios.get('https://jaimaa-backend.onrender.com/items')
       .then(res => setItems(res.data))
       .catch(err => console.log(err));
   }, []);
@@ -20,7 +20,7 @@ function App() {
   const addItem = () => {
     if(!name || !qty || !price) return alert("Please fill all fields");
     
-    axios.post('http://localhost:5000/items', { name, quantity: qty, price })
+    axios.post('https://jaimaa-backend.onrender.com/items', { name, quantity: qty, price })
       .then(res => {
         setItems([...items, res.data]); // Update the list instantly
         setName(""); setQty(""); setPrice(""); // Clear the boxes
@@ -29,7 +29,7 @@ function App() {
 
   // 3. Delete an item
   const deleteItem = (id) => {
-    axios.delete(`http://localhost:5000/items/${id}`)
+    axios.delete(`https://jaimaa-backend.onrender.com/items/${id}`)
       .then(() => {
         setItems(items.filter(item => item._id !== id));
       });
