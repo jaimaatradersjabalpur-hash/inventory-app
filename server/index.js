@@ -61,6 +61,14 @@ app.delete('/items/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// PUT: Update an existing item
+app.put('/items/:id', async (req, res) => {
+  try {
+    const updatedItem = await Item.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    res.json(updatedItem);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // POST: Save Bill & Reduce Stock
 app.post('/bills', async (req, res) => {
   try {

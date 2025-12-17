@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { FaTrash, FaSearch, FaExclamationTriangle, FaChartPie, FaRupeeSign } from 'react-icons/fa';
+import { FaTrash, FaSearch, FaExclamationTriangle, FaChartPie, FaRupeeSign, FaEdit } from 'react-icons/fa';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 
 function Inventory() {
@@ -9,9 +9,11 @@ function Inventory() {
     name: '', size: '', brand: '', category: 'Hardware', purchasePrice: '', sellingPrice: '', quantity: ''
   });
   const [searchTerm, setSearchTerm] = useState("");
+  const [editId, setEditId] = useState(null); // <--- New State for Editing
   
-  // USE LOCALHOST (Switch to Cloud URL before uploading!)
+  // SWITCH TO CLOUD URL BEFORE UPLOADING
   const API_URL = "https://jaimaa-backend.onrender.com/items"; 
+  // const API_URL = "http://localhost:5000/items"; // Use this for local testing
 
   useEffect(() => { fetchItems(); }, []);
 
@@ -22,13 +24,32 @@ function Inventory() {
 
   const handleChange = (e) => setNewItem({ ...newItem, [e.target.name]: e.target.value });
 
-  const addItem = async () => {
+  // --- ADD OR UPDATE ITEM LOGIC ---
+  const handleSaveItem = async () => {
     if (!newItem.name || !newItem.sellingPrice) return alert("Name and Selling Price are required!");
+    
     try {
-      const res = await axios.post(API_URL, newItem);
-      setItems([...items, res.data]);
+      if (editId) {
+        // UPDATE MODE
+        const res = await axios.put(`${API_URL}/${editId}`, newItem);
+        setItems(items.map(item => (item._id === editId ? res.data : item)));
+        setEditId(null); // Exit edit mode
+        alert("Item Updated!");
+      } else {
+        // ADD MODE
+        const res = await axios.post(API_URL, newItem);
+        setItems([...items, res.data]);
+        alert("Item Added!");
+      }
+      // Clear form
       setNewItem({ name: '', size: '', brand: '', category: 'Hardware', purchasePrice: '', sellingPrice: '', quantity: '' });
-    } catch (err) { alert("Error adding item"); }
+    } catch (err) { alert("Error saving item"); }
+  };
+
+  const startEditing = (item) => {
+    setNewItem(item); // Fill form with item data
+    setEditId(item._id); // Turn on edit mode
+    window.scrollTo(0, 0); // Scroll to top to see the form
   };
 
   const deleteItem = async (id) => {
@@ -37,8 +58,6 @@ function Inventory() {
     catch (err) { alert("Error deleting"); }
   };
 
-  // --- SAFETY CHECK ADDED HERE ---
-  // We use (item.name || "") to ensure we never crash if name is missing
   const filteredItems = items.filter(item => {
     const name = (item.name || "").toLowerCase();
     const brand = (item.brand || "").toLowerCase();
@@ -46,7 +65,7 @@ function Inventory() {
     return name.includes(term) || brand.includes(term);
   });
 
-  // Analytics Calculations
+  // Analytics
   const totalStockValue = items.reduce((acc, item) => acc + (Number(item.purchasePrice || 0) * Number(item.quantity || 0)), 0);
   const lowStockItems = items.filter(item => item.quantity < 5);
   
@@ -82,7 +101,6 @@ function Inventory() {
               <h2 style={{ margin: 0, color: "#c62828" }}>{lowStockItems.length} Items</h2>
             </div>
           </div>
-          {lowStockItems.length > 0 && <small style={{color:"red"}}>Restock needed!</small>}
         </div>
 
         <div style={cardStyle}>
@@ -101,26 +119,20 @@ function Inventory() {
            </div>
         </div>
 
-        {/* Card 4: Downloads */}
         <div style={cardStyle}>
-           <p style={{ margin: "0 0 15px", color: "#666", fontSize: "14px", fontWeight:"bold" }}>📊 Excel Reports</p>
+           <p style={{ margin: "0 0 15px", color: "#666", fontSize: "14px", fontWeight:"bold" }}>📊 Reports</p>
            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-             
-             <button onClick={() => window.open(`${API_URL.replace('/items', '')}/download/inventory`)} style={{...downloadBtn, background: "#2e7d32"}}>
-               📥 Download Stock List
-             </button>
-             
-             <button onClick={() => window.open(`${API_URL.replace('/items', '')}/download/bills`)} style={{...downloadBtn, background: "#0056b3"}}>
-               📥 Download Sales History
-             </button>
-
+             <button onClick={() => window.open(`${API_URL.replace('/items', '')}/download/inventory`)} style={{...downloadBtn, background: "#2e7d32"}}>📥 Stock List</button>
+             <button onClick={() => window.open(`${API_URL.replace('/items', '')}/download/bills`)} style={{...downloadBtn, background: "#0056b3"}}>📥 Sales History</button>
            </div>
         </div>
       </div>
 
-      {/* 2. ADD ITEM FORM */}
+      {/* 2. ADD / EDIT ITEM FORM */}
       <div style={{ background: "white", padding: "25px", borderRadius: "12px", marginBottom: "20px", boxShadow: "0 4px 12px rgba(0,0,0,0.05)" }}>
-        <h4 style={{ marginTop: 0, color: "#444" }}>+ Add New Stock</h4>
+        <h4 style={{ marginTop: 0, color: editId ? "#e65100" : "#444" }}>
+          {editId ? "✏️ Update Item Details" : "+ Add New Stock"}
+        </h4>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "15px" }}>
           <input name="name" placeholder="Item Name" value={newItem.name} onChange={handleChange} style={inputStyle} />
           <input name="size" placeholder="Size" value={newItem.size} onChange={handleChange} style={inputStyle} />
@@ -131,7 +143,12 @@ function Inventory() {
           <input name="purchasePrice" type="number" placeholder="Buy Price" value={newItem.purchasePrice} onChange={handleChange} style={inputStyle} />
           <input name="sellingPrice" type="number" placeholder="Sell Price" value={newItem.sellingPrice} onChange={handleChange} style={inputStyle} />
           <input name="quantity" type="number" placeholder="Qty" value={newItem.quantity} onChange={handleChange} style={inputStyle} />
-          <button onClick={addItem} style={buttonStyle}>Add Item</button>
+          
+          <button onClick={handleSaveItem} style={{ ...buttonStyle, background: editId ? "#e65100" : "#1976d2" }}>
+            {editId ? "Update Item" : "Add Item"}
+          </button>
+          
+          {editId && <button onClick={() => {setEditId(null); setNewItem({name:'', size:'', brand:'', category:'Hardware', purchasePrice:'', sellingPrice:'', quantity:''})}} style={{...buttonStyle, background:"#777"}}>Cancel</button>}
         </div>
       </div>
 
@@ -159,8 +176,7 @@ function Inventory() {
               {filteredItems.map(item => (
                 <tr key={item._id} style={{ borderBottom: "1px solid #f1f1f1" }}>
                   <td style={td}>
-                    {/* SAFE RENDERING: Handle missing names */}
-                    <div style={{ fontWeight: "600", color: "#333" }}>{item.name || "Unnamed Item"}</div>
+                    <div style={{ fontWeight: "600", color: "#333" }}>{item.name || "Unnamed"}</div>
                     <div style={{ fontSize: "12px", color: "#777", marginTop: "4px" }}>
                       {item.size && <span style={tagStyle}>{item.size}</span>}
                       {item.brand && <span style={{...tagStyle, background: "#fff3e0", color: "#e65100"}}>{item.brand}</span>}
@@ -172,15 +188,18 @@ function Inventory() {
                   </td>
                   <td style={td}>
                     {item.quantity < 5 ? (
-                      <span style={{ color: "red", fontWeight: "bold", display:"flex", alignItems:"center", gap:"5px" }}>
-                        <FaExclamationTriangle/> {item.quantity}
-                      </span>
-                    ) : (
-                      <span style={{ fontWeight: "bold", color: "#333" }}>{item.quantity}</span>
-                    )}
+                      <span style={{ color: "red", fontWeight: "bold", display:"flex", alignItems:"center", gap:"5px" }}><FaExclamationTriangle/> {item.quantity}</span>
+                    ) : <span style={{ fontWeight: "bold", color: "#333" }}>{item.quantity}</span>}
                   </td>
                   <td style={td}>
-                    <button onClick={() => deleteItem(item._id)} style={{ color: "#ff5252", border: "none", background: "none", cursor: "pointer", fontSize: "16px" }}><FaTrash /></button>
+                    {/* EDIT BUTTON */}
+                    <button onClick={() => startEditing(item)} style={{ color: "#1976d2", border: "none", background: "none", cursor: "pointer", fontSize: "16px", marginRight: "15px" }}>
+                      <FaEdit />
+                    </button>
+                    {/* DELETE BUTTON */}
+                    <button onClick={() => deleteItem(item._id)} style={{ color: "#ff5252", border: "none", background: "none", cursor: "pointer", fontSize: "16px" }}>
+                      <FaTrash />
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -192,14 +211,13 @@ function Inventory() {
   );
 }
 
-// Styles
 const cardStyle = { background: "white", padding: "20px", borderRadius: "12px", boxShadow: "0 4px 12px rgba(0,0,0,0.05)", display: "flex", flexDirection: "column", justifyContent: "center" };
 const iconBox = { width: "50px", height: "50px", borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "center" };
 const inputStyle = { padding: "12px", border: "1px solid #e0e0e0", borderRadius: "8px", outline: "none", fontSize: "14px", transition: "0.2s" };
-const buttonStyle = { background: "#1976d2", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "600", padding: "12px" };
+const buttonStyle = { color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "600", padding: "12px" };
 const tagStyle = { background: "#e3f2fd", color: "#1565c0", padding: "2px 8px", borderRadius: "4px", marginRight: "6px", fontSize: "11px" };
+const downloadBtn = { padding: "10px", color: "white", border: "none", borderRadius: "6px", cursor: "pointer", fontSize: "13px", fontWeight: "bold" };
 const th = { padding: "15px", borderBottom: "2px solid #f0f0f0", color: "#555", fontSize: "14px", textTransform: "uppercase", letterSpacing: "0.5px" };
 const td = { padding: "15px", verticalAlign: "middle" };
-const downloadBtn = { padding: "10px", color: "white", border: "none", borderRadius: "6px", cursor: "pointer", fontSize: "13px", fontWeight: "bold" };
 
 export default Inventory;
